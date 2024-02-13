@@ -1,0 +1,21 @@
+{
+  "name": "simple-dvt-stats",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/figlet": "^1.5.8",
+    "@types/node": "^20.11.17",
+    "axios": "^1.6.7",
+    "commander": "^12.0.0",
+    "exec": "^0.2.1",
+    "figlet": "^1.7.0",
+    "ora": "^8.0.1"
+  }
+}
