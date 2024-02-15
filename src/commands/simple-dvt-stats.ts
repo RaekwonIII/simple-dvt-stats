@@ -16,10 +16,10 @@ simpleDVT
     let simpleDVTValidators: string[] = [];
     if (config.simpleDVTValidators) {
       // This is hardcoded to avoid spamming the e2m API
-      console.warn("Missing config, need to fetch cluster validators from e2m")
       simpleDVTValidators = config.simpleDVTValidators
     }
     else {
+      console.warn("Missing config, need to fetch cluster validators from e2m")
       for (let cluster in config.clusters) {
         let clusterValidators = await getClusterValidators(cluster)
         simpleDVTValidators.push(...clusterValidators)
