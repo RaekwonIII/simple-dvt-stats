@@ -11,13 +11,13 @@ export const simpleDVT = new Command("simple-dvt");
 
 simpleDVT
   .version("0.0.1", "-v, --vers", "output the current version")
-  .argument("<cluster>", "the name of the cluster for which to fetch stats")
+  .argument("[cluster]", "the name of the cluster for which to fetch stats")
   .action(async (cluster) => {
     console.info(figlet.textSync("Simple DVT Stats"));
 
     let simpleDVTValidators: string[] = [];
     // data for ALL clusters was requested
-    if (cluster == "all" && config.simpleDVTValidators) {
+    if ((!cluster || cluster == "all") && config.simpleDVTValidators) {
       console.log(`Getting validator stats for ${cluster} clusters`);
       // List in config to avoid spamming the e2m API
       simpleDVTValidators.push(...config.simpleDVTValidators);
@@ -112,7 +112,7 @@ async function getBatchValidatorData(
 ): Promise<ValidatorData[]> {
   const http = axiosRateLimit(axios.create(), { maxRPS: 2 });
   let validatorDataBatches: ValidatorData[] = [];
-  for (let i = 0; i <= simpleDVTValidators?.length / 200; i++) {
+  for (let i = 0; i < simpleDVTValidators?.length / 200; i++) {
     console.log(`Requestind data for batch number ${i + 1}`);
     let validators = simpleDVTValidators.slice(i * 200, (i + 1) * 200);
 
