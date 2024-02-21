@@ -9,82 +9,117 @@ const readline = require("readline");
 
 export const simpleDVT = new Command("simple-dvt");
 
+type ValidatorData = {
+  uptime: number;
+  attesterEffectiveness: number;
+  proposedCount: number;
+  proposerDutiesCount: number;
+  proposerEffectiveness: number;
+};
+
 simpleDVT
   .version("0.0.1", "-v, --vers", "output the current version")
   .argument("[cluster]", "the name of the cluster for which to fetch stats")
   .action(async (cluster) => {
     console.info(figlet.textSync("Simple DVT Stats"));
 
-    let simpleDVTValidators: string[] = [];
+    if (!cluster) cluster = "all";
+    let simpleDVTValidatorsDict: { [clusterName: string]: string[] } = {};
     // data for ALL clusters was requested
-    if ((!cluster || cluster == "all") && config.simpleDVTValidators) {
+    if (cluster == "all" && config.simpleDVTValidators) {
       console.log(`Getting validator stats for ${cluster} clusters`);
-      // List in config to avoid spamming the e2m API
-      simpleDVTValidators.push(...config.simpleDVTValidators);
-      if (simpleDVTValidators.length == 0) {
-        console.warn(
-          "Missing config, need to fetch cluster validators from e2m"
-        );
-        for (let cluster in config.clusters) {
-          let clusterValidators = await getClusterValidators(cluster);
-          simpleDVTValidators.push(...clusterValidators);
+      for (let [clusterName, operators] of Object.entries(config.clusterDict)) {
+        let clusterValidators = await getClusterValidators(operators);
+        simpleDVTValidatorsDict[
+          clusterName as keyof typeof simpleDVTValidatorsDict
+        ] = clusterValidators;
+
+        if (
+          simpleDVTValidatorsDict[
+            clusterName as keyof typeof simpleDVTValidatorsDict
+          ].length == 0
+        ) {
+          console.error(
+            "Missing config, need to fetch cluster validators from e2m"
+          );
         }
+
+        console.debug(
+          `Found ${
+            simpleDVTValidatorsDict[
+              clusterName as keyof typeof simpleDVTValidatorsDict
+            ].length
+          } validators belonging to ${clusterName}`
+        );
       }
-    } else { // data for a SINGLE cluster was requested
-      console.log(`Provided ${cluster} as cluster shorthand`);
+    } else {
+      // data for a SINGLE cluster was requested
+      console.debug(`Provided ${cluster} as cluster shorthand`);
       let clusterNames = Object.keys(config.clusterDict);
       let clusterNameMatch = clusterNames.filter((el) =>
         el.toLocaleLowerCase().includes(cluster)
       )[0];
 
-      console.log(
+      console.debug(
         `Found ${clusterNameMatch}. Getting validator stats that cluster`
       );
 
       let clusterValidators = await getClusterValidators(
         config.clusterDict[clusterNameMatch as keyof typeof config.clusterDict]
       );
-      simpleDVTValidators.push(...clusterValidators);
+      simpleDVTValidatorsDict[
+        clusterNameMatch as keyof typeof simpleDVTValidatorsDict
+      ] = clusterValidators;
 
-      if (simpleDVTValidators.length == 0) {
+      if (Object.keys(simpleDVTValidatorsDict).length == 0) {
         console.error(
           "Missing config, need to fetch cluster validators from e2m"
         );
       }
 
-      console.log(
-        `Found ${simpleDVTValidators.length} validators belonging to ${clusterNameMatch}`
+      console.debug(
+        `Found ${
+          Object.keys(simpleDVTValidatorsDict).length == 0
+        } validators belonging to ${clusterNameMatch}`
       );
     }
 
-    let validatorDataBatches: ValidatorData[] = await getBatchValidatorData(
-      simpleDVTValidators
+    let validatorDataByCluster = await getValidatorDataByCluster(
+      simpleDVTValidatorsDict
     );
 
-    let uptime = 0;
-    let attesterEffectiveness = 0;
-    let totalProposed = 0;
-    let totalProposedDuties = 0;
-    for (let batch of validatorDataBatches) {
-      uptime += batch.uptime / validatorDataBatches.length;
-      attesterEffectiveness +=
-        batch.attesterEffectiveness / validatorDataBatches.length;
-      totalProposed += batch.proposedCount;
-      totalProposedDuties += batch.proposerDutiesCount;
-    }
-
-    console.log(`Uptime: ${uptime * 100} %`);
-    console.log(`Effectiveness: ${attesterEffectiveness} %`);
-    console.log(`Total proposals: ${totalProposed}/${totalProposedDuties}`);
+    const validatorDataArray = Object.values(
+      validatorDataByCluster
+    );
+    let totalSimpleDVTValidatorData = validatorDataArray.reduce((accumulator: ValidatorData, currentValue: ValidatorData) => {
+      accumulator.uptime +=
+        currentValue.uptime / validatorDataArray.length;
+      accumulator.attesterEffectiveness +=
+        currentValue.attesterEffectiveness /
+        validatorDataArray.length;
+      accumulator.proposedCount += currentValue.proposedCount;
+      accumulator.proposerDutiesCount += currentValue.proposerDutiesCount;
+      return accumulator;
+    });
+    console.log(`Uptime: ${totalSimpleDVTValidatorData.uptime * 100} %`);
     console.log(
-      `Proposal ratio: ${100* totalProposed / totalProposedDuties} %`
+      `Effectiveness: ${totalSimpleDVTValidatorData.attesterEffectiveness} %`
+    );
+    console.log(
+      `Total proposals: ${totalSimpleDVTValidatorData.proposedCount}/${totalSimpleDVTValidatorData.proposerDutiesCount}`
+    );
+    console.log(
+      `Proposal ratio: ${
+        (100 * totalSimpleDVTValidatorData.proposedCount) /
+        totalSimpleDVTValidatorData.proposerDutiesCount
+      } %`
     );
   });
 
 async function getClusterValidators(cluster: string): Promise<string[]> {
-  console.log(
-    `Obtaining validators for cluster ${cluster}\n${process.env.E2M_CLUSTER_API}${cluster}`
-  );
+  // console.debug(
+  //   `Obtaining validators for cluster ${cluster}\n${process.env.E2M_CLUSTER_API}${cluster}`
+  // );
   axios.create();
   let response = await axios({
     method: "GET",
@@ -99,43 +134,44 @@ async function getClusterValidators(cluster: string): Promise<string[]> {
   return validators;
 }
 
-type ValidatorData = {
-  uptime: number;
-  attesterEffectiveness: number;
-  proposedCount: number;
-  proposerDutiesCount: number;
-  proposerEffectiveness: number;
-};
+async function getValidatorDataByCluster(simpleDVTValidatorsDict: {
+  [clusterName: string]: string[];
+}): Promise<{ [clusterName: string]: ValidatorData }> {
+  const http = axiosRateLimit(axios.create(), { maxRPS: 1 });
+  let validatorDataBatches: { [clusterName: string]: ValidatorData } = {};
 
-async function getBatchValidatorData(
-  simpleDVTValidators: string[]
-): Promise<ValidatorData[]> {
-  const http = axiosRateLimit(axios.create(), { maxRPS: 2 });
-  let validatorDataBatches: ValidatorData[] = [];
-  for (let i = 0; i < simpleDVTValidators?.length / 200; i++) {
-    console.log(`Requestind data for batch number ${i + 1}`);
-    let validators = simpleDVTValidators.slice(i * 200, (i + 1) * 200);
+  for (let [clusterName, simpleDVTValidators] of Object.entries(
+    simpleDVTValidatorsDict
+  )) {
+      console.log(
+        `Requesting validator data for ${clusterName} cluster`
+      );
 
-    let validatorIndices = validators.join("&indices=");
-    let url = `${process.env.RATED_API}${process.env.RATED_API_PARAMS}${validatorIndices}`;
-    try {
-      let response = await http.get(url, {
-        headers: {
-          "content-type": "application/json",
-          "X-Rated-Network": "holesky",
-          Authorization: `Bearer ${process.env.RATED_AUTH}`,
-        },
-      });
+      let validatorIndices = simpleDVTValidators.join("&indices=");
+      let url = `${process.env.RATED_API}${process.env.RATED_API_PARAMS}${validatorIndices}`;
+      try {
+        let response = await http.get(url, {
+          headers: {
+            "content-type": "application/json",
+            "X-Rated-Network": "holesky",
+            Authorization: `Bearer ${process.env.RATED_AUTH}`,
+          },
+        });
 
-      if (response.status !== 200) throw Error("Request did not return OK");
-      let batchValidatorData = response.data.data[0];
-      if (batchValidatorData) validatorDataBatches.push(batchValidatorData);
-      // console.log(batchValidatorData)
-    } catch (err) {
-      // spinnerError();
-      // stopSpinner();
-      console.error("ERROR DURING AXIOS REQUEST");
-    }
+        if (response.status !== 200) throw Error("Request did not return OK");
+        let clusterValidatorData = response.data.data[0];
+        if (clusterValidatorData) {
+          validatorDataBatches[clusterName] = clusterValidatorData;
+
+
+        }
+
+      } catch (err) {
+        // spinnerError();
+        // stopSpinner();
+        console.error("ERROR DURING AXIOS REQUEST");
+      }
   }
+
   return validatorDataBatches;
 }
