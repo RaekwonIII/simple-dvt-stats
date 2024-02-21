@@ -88,19 +88,24 @@ simpleDVT
       simpleDVTValidatorsDict
     );
 
-    const validatorDataArray = Object.values(
-      validatorDataByCluster
+    const validatorDataArray = Object.values(validatorDataByCluster);
+    let initialValue: ValidatorData = {
+      uptime: 0,
+      attesterEffectiveness: 0,
+      proposedCount: 0,
+      proposerDutiesCount: 0,
+      proposerEffectiveness: 0
+    }
+    let totalSimpleDVTValidatorData = validatorDataArray.reduce(
+      (accumulator: ValidatorData, currentValue: ValidatorData) => {
+        accumulator.uptime += currentValue.uptime / validatorDataArray.length;
+        accumulator.attesterEffectiveness +=
+          currentValue.attesterEffectiveness / validatorDataArray.length;
+        accumulator.proposedCount += currentValue.proposedCount;
+        accumulator.proposerDutiesCount += currentValue.proposerDutiesCount;
+        return accumulator;
+      }, initialValue
     );
-    let totalSimpleDVTValidatorData = validatorDataArray.reduce((accumulator: ValidatorData, currentValue: ValidatorData) => {
-      accumulator.uptime +=
-        currentValue.uptime / validatorDataArray.length;
-      accumulator.attesterEffectiveness +=
-        currentValue.attesterEffectiveness /
-        validatorDataArray.length;
-      accumulator.proposedCount += currentValue.proposedCount;
-      accumulator.proposerDutiesCount += currentValue.proposerDutiesCount;
-      return accumulator;
-    });
     console.log(`Uptime: ${totalSimpleDVTValidatorData.uptime * 100} %`);
     console.log(
       `Effectiveness: ${totalSimpleDVTValidatorData.attesterEffectiveness} %`
@@ -143,34 +148,45 @@ async function getValidatorDataByCluster(simpleDVTValidatorsDict: {
   for (let [clusterName, simpleDVTValidators] of Object.entries(
     simpleDVTValidatorsDict
   )) {
-      console.log(
-        `Requesting validator data for ${clusterName} cluster`
-      );
+    // console.log(
+    //   `Requesting validator data for ${clusterName} cluster`
+    // );
 
-      let validatorIndices = simpleDVTValidators.join("&indices=");
-      let url = `${process.env.RATED_API}${process.env.RATED_API_PARAMS}${validatorIndices}`;
-      try {
-        let response = await http.get(url, {
-          headers: {
-            "content-type": "application/json",
-            "X-Rated-Network": "holesky",
-            Authorization: `Bearer ${process.env.RATED_AUTH}`,
-          },
-        });
+    let validatorIndices = simpleDVTValidators.join("&indices=");
+    let url = `${process.env.RATED_API}${process.env.RATED_API_PARAMS}${validatorIndices}`;
+    try {
+      let response = await http.get(url, {
+        headers: {
+          "content-type": "application/json",
+          "X-Rated-Network": "holesky",
+          Authorization: `Bearer ${process.env.RATED_AUTH}`,
+        },
+      });
 
-        if (response.status !== 200) throw Error("Request did not return OK");
-        let clusterValidatorData = response.data.data[0];
-        if (clusterValidatorData) {
-          validatorDataBatches[clusterName] = clusterValidatorData;
-
-
-        }
-
-      } catch (err) {
-        // spinnerError();
-        // stopSpinner();
-        console.error("ERROR DURING AXIOS REQUEST");
+      if (response.status !== 200) throw Error("Request did not return OK");
+      let clusterValidatorData = response.data.data[0];
+      if (clusterValidatorData) {
+        validatorDataBatches[clusterName] = clusterValidatorData;
+        console.log(`Validator data for ${clusterName} cluster`);
+        console.log(`Uptime: ${clusterValidatorData.uptime * 100} %`);
+        console.log(
+          `Effectiveness: ${clusterValidatorData.attesterEffectiveness} %`
+        );
+        console.log(
+          `Total proposals: ${clusterValidatorData.proposedCount}/${clusterValidatorData.proposerDutiesCount}`
+        );
+        console.log(
+          `Proposal ratio: ${
+            (100 * clusterValidatorData.proposedCount) /
+            clusterValidatorData.proposerDutiesCount
+          } %`
+        );
       }
+    } catch (err) {
+      // spinnerError();
+      // stopSpinner();
+      console.error("ERROR DURING AXIOS REQUEST");
+    }
   }
 
   return validatorDataBatches;
