@@ -3,9 +3,7 @@ import figlet from "figlet";
 import axios from "axios";
 import { config } from "../config";
 import axiosRateLimit from "axios-rate-limit";
-import { ObjectType } from "typescript";
-
-const readline = require("readline");
+import { writeFile } from "node:fs";
 
 export const simpleDVT = new Command("simple-dvt");
 
@@ -16,6 +14,33 @@ type ValidatorData = {
   proposerDutiesCount: number;
   proposerEffectiveness: number;
 };
+var date = new Date();
+var month = date.getMonth() + 1; // "+ 1" becouse the 1st month is 0
+var day = date.getDate();
+var hours = date.getHours();
+var minutes = date.getMinutes();
+var seconds = date.getSeconds();
+
+const filename = `${__dirname}/../../validator-data-${date.getFullYear()}-${
+  (month < 10 ? "0" : "") + month
+}-${(day < 10 ? "0" : "") + day}T${(hours < 10 ? "0" : "") + hours}:${
+  (minutes < 10 ? "0" : "") + minutes
+}:${(seconds < 10 ? "0" : "") + seconds}Z.csv`;
+
+writeFile(
+  filename,
+  `${["Cluster", "Uptime", "Effectiveness", "Proposals", "Proposal Ratio"].join(
+    ","
+  )}\n`,
+  { flag: "a+" },
+  (err) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log("Initialized CSV file with columns");
+    }
+  }
+);
 
 simpleDVT
   .version("0.0.1", "-v, --vers", "output the current version")
@@ -43,14 +68,6 @@ simpleDVT
             "Missing config, need to fetch cluster validators from e2m"
           );
         }
-
-        console.debug(
-          `Found ${
-            simpleDVTValidatorsDict[
-              clusterName as keyof typeof simpleDVTValidatorsDict
-            ].length
-          } validators belonging to ${clusterName}`
-        );
       }
     } else {
       // data for a SINGLE cluster was requested
@@ -88,14 +105,40 @@ simpleDVT
       simpleDVTValidatorsDict
     );
 
+    Object.entries(validatorDataByCluster).map(
+      ([clusterName, validatorData]) => {
+        writeFile(
+          filename,
+          `${[
+            clusterName,
+            `${validatorData.uptime * 100}`,
+            `${validatorData.attesterEffectiveness}`,
+            `${validatorData.proposedCount}/${validatorData.proposerDutiesCount}`,
+            `${
+              (100 * validatorData.proposedCount) /
+              validatorData.proposerDutiesCount
+            }`,
+          ].join(",")}\n`,
+          { flag: "a+" },
+          (err) => {
+            if (err) {
+              console.error(err);
+            } else {
+              // console.log("Initialized CSV file with columns")
+            }
+          }
+        );
+      }
+    );
+
     const validatorDataArray = Object.values(validatorDataByCluster);
     let initialValue: ValidatorData = {
       uptime: 0,
       attesterEffectiveness: 0,
       proposedCount: 0,
       proposerDutiesCount: 0,
-      proposerEffectiveness: 0
-    }
+      proposerEffectiveness: 0,
+    };
     let totalSimpleDVTValidatorData = validatorDataArray.reduce(
       (accumulator: ValidatorData, currentValue: ValidatorData) => {
         accumulator.uptime += currentValue.uptime / validatorDataArray.length;
@@ -104,7 +147,8 @@ simpleDVT
         accumulator.proposedCount += currentValue.proposedCount;
         accumulator.proposerDutiesCount += currentValue.proposerDutiesCount;
         return accumulator;
-      }, initialValue
+      },
+      initialValue
     );
     console.log(`Uptime: ${totalSimpleDVTValidatorData.uptime * 100} %`);
     console.log(
