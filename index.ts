@@ -3,12 +3,14 @@ import { Command } from 'commander';
 
 import { spinnerError, stopSpinner } from "./src/spinner";
 import { simpleDVT } from "./src/commands/simple-dvt-stats";
+import { operatorData } from "./src/commands/simple-dvt-operators"
 
 const program = new Command();
 program.argument("<owner>", "the id of the widget")
 .description('A simple demonstrative command line tool to obtain validator stats for the Simple DVT campaign')
 .version('0.0.1')
 .addCommand(simpleDVT)
+.addCommand(operatorData)
 
 process.on('unhandledRejection', function (err: Error) { // listen for unhandled promise rejections
     const debug = program.opts().verbose; // is the --verbose flag set?
