@@ -29,7 +29,7 @@ const filename = `${__dirname}/../../validator-data-${date.getFullYear()}-${
 
 writeFile(
   filename,
-  `${["Cluster", "Uptime", "Effectiveness", "Proposals", "Proposal Ratio"].join(
+  `${["Cluster", "Uptime", "Effectiveness", "Successful Proposals", "Proposal Duties", "Proposal Ratio"].join(
     ","
   )}\n`,
   { flag: "a+" },
@@ -113,7 +113,8 @@ simpleDVT
             clusterName,
             `${validatorData.uptime * 100}`,
             `${validatorData.attesterEffectiveness}`,
-            `${validatorData.proposedCount}/${validatorData.proposerDutiesCount}`,
+            `${validatorData.proposedCount}`,
+            `${validatorData.proposerDutiesCount}`,
             `${
               (100 * validatorData.proposedCount) /
               validatorData.proposerDutiesCount
