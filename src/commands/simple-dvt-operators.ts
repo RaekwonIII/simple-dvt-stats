@@ -45,7 +45,7 @@ operatorData
         }
       }
     );
-    
+
     let simpleDVTOperatorData: OperatorData[] = [];
     // data for ALL clusters was requested
     console.log(`Getting validator stats for all clusters`);
@@ -90,7 +90,9 @@ async function getClusterOperatorData(owner:string, clusterName:string, operator
   });
 
   if (response.status !== 200) throw Error("Request did not return OK");
-  let operatorsData = response.data.cluster.operators.map((operator: { id: any; performance: { [x: string]: any; }; }) => {
+  let operatorsData = response.data.cluster.operators.map((operator: { id: any; fee: string; performance: { [x: string]: any; }; }) => {
+    if (operator.fee != "0") console.log(`Operator ${operator.id} in cluster ${clusterName} has a ${operator.fee} fee, instead of 0`)
+    
     console.log(`Operator ${operator.id} in cluster ${clusterName} has ${operator.performance["30d"]} performance over 30 days`)
     return {
       operatorId: operator.id,
