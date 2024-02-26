@@ -20,21 +20,6 @@ const filename = `${__dirname}/../../operator-data-${date.getFullYear()}-${
   (minutes < 10 ? "0" : "") + minutes
 }:${(seconds < 10 ? "0" : "") + seconds}Z.csv`;
 
-writeFile(
-  filename,
-  `${["OperatorId", "Cluster", "30d Performance"].join(
-    ","
-  )}\n`,
-  { flag: "a+" },
-  (err) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log("Initialized CSV file with columns");
-    }
-  }
-);
-
 type OperatorData = {
   operatorId: number;
   clusterName: string;
@@ -46,7 +31,21 @@ operatorData
   .action(async (cluster) => {
     console.info(figlet.textSync("Simple DVT Stats"));
 
-    let simpleDVTValidatorsDict: { [clusterName: string]: string[] } = {};
+    writeFile(
+      filename,
+      `${["OperatorId", "Cluster", "30d Performance"].join(
+        ","
+      )}\n`,
+      { flag: "a+" },
+      (err) => {
+        if (err) {
+          console.error(err);
+        } else {
+          console.log("Initialized CSV file with columns");
+        }
+      }
+    );
+    
     let simpleDVTOperatorData: OperatorData[] = [];
     // data for ALL clusters was requested
     console.log(`Getting validator stats for all clusters`);

@@ -27,26 +27,26 @@ const filename = `${__dirname}/../../validator-data-${date.getFullYear()}-${
   (minutes < 10 ? "0" : "") + minutes
 }:${(seconds < 10 ? "0" : "") + seconds}Z.csv`;
 
-writeFile(
-  filename,
-  `${["Cluster", "Uptime", "Effectiveness", "Successful Proposals", "Proposal Duties", "Proposal Ratio"].join(
-    ","
-  )}\n`,
-  { flag: "a+" },
-  (err) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log("Initialized CSV file with columns");
-    }
-  }
-);
-
 simpleDVT
   .version("0.0.1", "-v, --vers", "output the current version")
   .argument("[cluster]", "the name of the cluster for which to fetch stats")
   .action(async (cluster) => {
     console.info(figlet.textSync("Simple DVT Stats"));
+
+    writeFile(
+      filename,
+      `${["Cluster", "Uptime", "Effectiveness", "Successful Proposals", "Proposal Duties", "Proposal Ratio"].join(
+        ","
+      )}\n`,
+      { flag: "a+" },
+      (err) => {
+        if (err) {
+          console.error(err);
+        } else {
+          console.log("Initialized CSV file with columns");
+        }
+      }
+    );
 
     if (!cluster) cluster = "all";
     let simpleDVTValidatorsDict: { [clusterName: string]: string[] } = {};
