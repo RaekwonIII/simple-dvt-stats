@@ -28,7 +28,8 @@ type OperatorData = {
 
 operatorData
   .version("0.0.1", "-v, --vers", "output the current version")
-  .action(async (cluster) => {
+  .argument("[api]", "should data be pulled from SSV API")
+  .action(async (api) => {
     console.info(figlet.textSync("Simple DVT Stats"));
 
     writeFile(
@@ -51,8 +52,13 @@ operatorData
     console.log(`Getting validator stats for all clusters`);
     for (let [clusterName, operators] of Object.entries(config.clusterDict)) {
       let owner = config.clusterOwnersDict[clusterName as keyof typeof config.clusterOwnersDict];
+      let clusterOperatorData: OperatorData[];
 
-      let clusterOperatorData = await getClusterOperatorData(owner, clusterName, operators);
+      if (api && api == "ssv") // using ssv api
+        clusterOperatorData = await getClusterOperatorData(owner, clusterName, operators);
+      else // using ssv-scan api
+        clusterOperatorData = await getClusterOperatorDataFromSSVScan(clusterName, operators);
+
       simpleDVTOperatorData.push(...clusterOperatorData)
     }
 
@@ -77,6 +83,39 @@ operatorData
       }
     );
   });
+
+async function getClusterOperatorDataFromSSVScan(clusterName:string, operators:string): Promise<OperatorData[]> {
+
+  const http = axiosRateLimit(axios.create(), { maxRPS: 1 });
+  let operatorsData: OperatorData[] = [];
+
+  for (let operatorId of operators.split(",")){
+    let url = `${process.env.SSV_SCAN_API?.replace(/\[operator\]/gi, operatorId)}`;
+    try {
+      let response = await http.get(url, {
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+
+      if (response.status !== 200) throw Error("Request did not return OK");
+
+      let performance = response.data.data.performance
+      operatorsData.push({
+        operatorId: Number(operatorId),
+        clusterName: clusterName,
+        performance: performance
+      })
+      console.log(`Operator ${operatorId} in cluster ${clusterName} has ${performance} performance over 30 days`)
+    } catch (err) {
+      // spinnerError();
+      // stopSpinner();
+      console.error("ERROR DURING AXIOS REQUEST");
+    }
+  }
+
+  return operatorsData;
+}
 
 async function getClusterOperatorData(owner:string, clusterName:string, operators:string): Promise<OperatorData[]> {
 
